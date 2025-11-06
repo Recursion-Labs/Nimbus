@@ -1,0 +1,202 @@
+import path from 'path';
+
+import Copy from 'copy-webpack-plugin';
+import TerserPlugin from 'terser-webpack-plugin';
+import webpack from 'webpack';
+
+const nodeEnv = process.env.NODE_ENV || 'development';
+const isProd = nodeEnv === 'production';
+
+const config: webpack.Configuration[] = [
+  {
+    mode: 'none',
+    name: 'nimbus-app',
+    resolve: {
+      extensions: ['.js', '.jsx', '.ts', '.tsx', '.json']
+    },
+    entry: './app/index.ts',
+    output: {
+      path: path.join(__dirname, 'target'),
+      filename: 'ignore_this.js'
+    },
+    module: {
+      rules: [
+        {
+          test: /\.(js|jsx|ts|tsx)$/,
+          exclude: /node_modules/,
+          loader: 'null-loader'
+        }
+      ]
+    },
+    plugins: [
+      new Copy({
+        patterns: [
+          {
+            from: './app/*.html',
+            globOptions: {ignore: ['**/node_modules/**']},
+            to: '[name][ext]'
+          },
+          {
+            from: './app/*.json',
+            globOptions: {ignore: ['**/node_modules/**']},
+            to: '[name][ext]'
+          },
+          {
+            from: './app/config/*.json',
+            globOptions: {ignore: ['**/node_modules/**']},
+            to: './config/[name][ext]'
+          },
+          {
+            from: './app/config/*.ps1',
+            globOptions: {ignore: ['**/node_modules/**']},
+            to: './config/[name][ext]'
+          },
+          {
+            from: './app/yarn.lock',
+            to: 'yarn.lock'
+          },
+          {
+            from: './app/keymaps/*.json',
+            globOptions: {ignore: ['**/node_modules/**']},
+            to: './keymaps/[name][ext]'
+          },
+          {
+            from: './app/static',
+            to: './static'
+          },
+          {
+            from: './app/patches',
+            to: './patches'
+          }
+        ]
+      })
+    ],
+    target: 'electron-main'
+  },
+
+  {
+    mode: 'none',
+    name: 'nimbus',
+    resolve: {
+      extensions: ['.js', '.jsx', '.ts', '.tsx', '.d.ts']
+    },
+    devtool: isProd ? 'hidden-source-map' : 'cheap-module-source-map',
+    entry: './lib/index.tsx',
+    output: {
+      path: path.join(__dirname, 'target', 'renderer'),
+      filename: 'bundle.js'
+    },
+    module: {
+      rules: [
+        {
+          test: /\.(js|jsx|ts|tsx)$/,
+          exclude: /node_modules/,
+          loader: 'babel-loader'
+        },
+        {
+          test: /\.json/,
+          loader: 'json-loader'
+        },
+        // for xterm.js
+        {
+          test: /\.css$/,
+          use: ['style-loader', 'css-loader']
+        }
+      ]
+    },
+    externals: {
+      'color-convert': 'require("color-convert")',
+      'color-string': 'require("color-string")',
+      columnify: 'require("columnify")',
+      lodash: 'require("lodash")',
+      ms: 'require("ms")',
+      'normalize-url': 'require("normalize-url")',
+      'parse-url': 'require("parse-url")',
+      'php-escape-shell': 'require("php-escape-shell")',
+      plist: 'require("plist")',
+      // Don't externalize React - bundle it
+      // 'react-dom': 'require("react-dom")',
+      // 'react-redux': 'require("react-redux")',
+      // react: 'require("react")',
+      'redux-thunk': 'require("redux-thunk")',
+      redux: 'require("redux")',
+      reselect: 'require("reselect")',
+      'seamless-immutable': 'require("seamless-immutable")',
+      stylis: 'require("stylis")',
+      'xterm-addon-unicode11': 'require("xterm-addon-unicode11")',
+      args: 'require("args")',
+      mousetrap: 'require("mousetrap")',
+      open: 'require("open")',
+      'xterm-addon-fit': 'require("xterm-addon-fit")',
+      'xterm-addon-image': 'require("xterm-addon-image")',
+      'xterm-addon-search': 'require("xterm-addon-search")',
+      'xterm-addon-web-links': 'require("xterm-addon-web-links")',
+      'xterm-addon-webgl': 'require("xterm-addon-webgl")',
+      'xterm-addon-canvas': 'require("xterm-addon-canvas")',
+      xterm: 'require("xterm")'
+    },
+    plugins: [
+      new webpack.IgnorePlugin({resourceRegExp: /.*\.js.map$/i}),
+
+      new webpack.DefinePlugin({
+        'process.env': {
+          NODE_ENV: JSON.stringify(nodeEnv)
+        }
+      }),
+      new Copy({
+        patterns: [
+          {
+            from: './assets',
+            to: './assets'
+          }
+        ]
+      })
+    ],
+    optimization: {
+      minimize: isProd ? true : false,
+      minimizer: [new TerserPlugin()]
+    },
+    target: 'electron-renderer'
+  },
+  {
+    mode: 'none',
+    name: 'nimbus-cli',
+    resolve: {
+      extensions: ['.js', '.jsx', '.ts', '.tsx', '.json']
+    },
+    devtool: isProd ? false : 'cheap-module-source-map',
+    entry: './cli/index.ts',
+    output: {
+      path: path.join(__dirname, 'bin'),
+      filename: 'cli.js'
+    },
+    module: {
+      rules: [
+        {
+          test: /\.(js|jsx|ts|tsx)$/,
+          exclude: /node_modules/,
+          loader: 'babel-loader'
+        },
+        {
+          test: /index.js/,
+          loader: 'shebang-loader',
+          include: [/node_modules\/rc/]
+        }
+      ]
+    },
+    plugins: [
+      // spawn-sync is required by execa if node <= 0.10
+      new webpack.IgnorePlugin({resourceRegExp: /(.*\.js.map|spawn-sync)$/i}),
+      new webpack.DefinePlugin({
+        'process.env.NODE_ENV': JSON.stringify(nodeEnv)
+      })
+    ],
+    optimization: {
+      minimize: isProd ? true : false,
+      minimizer: [new TerserPlugin()]
+    },
+    target: 'node'
+  }
+];
+
+export default config;

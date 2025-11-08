@@ -102,7 +102,10 @@ const config: webpack.Configuration[] = [
           test: /\.css$/,
           use: ['style-loader', 'css-loader']
         }
-      ]
+      ],
+      // Fix for EPIPE and stream errors
+      exprContextCritical: false,
+      unknownContextCritical: false
     },
     externals: {
       'color-convert': 'require("color-convert")',
@@ -150,7 +153,16 @@ const config: webpack.Configuration[] = [
             to: './assets'
           }
         ]
-      })
+      }),
+      // Fix for critical dependency warnings
+      new webpack.ContextReplacementPlugin(
+        /keyv/,
+        (context: any) => {
+          Object.assign(context, {
+            request: '../package.json'
+          });
+        }
+      )
     ],
     optimization: {
       minimize: isProd ? true : false,
@@ -182,14 +194,26 @@ const config: webpack.Configuration[] = [
           loader: 'shebang-loader',
           include: [/node_modules\/rc/]
         }
-      ]
+      ],
+      // Fix for critical dependency warnings
+      exprContextCritical: false,
+      unknownContextCritical: false
     },
     plugins: [
       // spawn-sync is required by execa if node <= 0.10
       new webpack.IgnorePlugin({resourceRegExp: /(.*\.js.map|spawn-sync)$/i}),
       new webpack.DefinePlugin({
         'process.env.NODE_ENV': JSON.stringify(nodeEnv)
-      })
+      }),
+      // Fix for got/keyv dependency warnings
+      new webpack.ContextReplacementPlugin(
+        /cacheable-request/,
+        (context: any) => {
+          Object.assign(context, {
+            request: '../package.json'
+          });
+        }
+      )
     ],
     optimization: {
       minimize: isProd ? true : false,

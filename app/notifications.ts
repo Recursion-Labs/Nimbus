@@ -24,6 +24,11 @@ export default function fetchNotifications(win: BrowserWindow) {
   })
     .then((res) => {
       if (!res.ok) {
+        if (res.status === 404) {
+          console.log('Notification service not available (404), skipping');
+          retry();
+          return null;
+        }
         throw new Error(`HTTP error! status: ${res.status}`);
       }
       const contentType = res.headers.get('content-type');

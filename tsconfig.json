@@ -8,7 +8,13 @@
     "./lib/",
     "./test/",
     "./cli/",
-    "./typings/"
+    "./typings/**/*"
+  ],
+  "exclude": [
+    "./target/**",
+    "./dist/**",
+    "./app/renderer/**",
+    "./node_modules/**"
   ],
   "references": [
     {

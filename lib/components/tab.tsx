@@ -2,6 +2,8 @@ import React, {forwardRef} from 'react';
 
 import type {TabProps} from '../../typings/nimbus';
 
+const isMac = /Mac/.test(navigator.userAgent);
+
 const Tab = forwardRef<HTMLLIElement, TabProps>((props, ref) => {
   const handleClick = (event: React.MouseEvent) => {
     const isLeftClick = event.nativeEvent.which === 1;
@@ -42,8 +44,9 @@ const Tab = forwardRef<HTMLLIElement, TabProps>((props, ref) => {
           </span>
         </span>
         <i className="tab_icon" onClick={props.onClose}>
-          <svg className="tab_shape">
-            <use xlinkHref="./renderer/assets/icons.svg#close-tab" />
+          <svg className="tab_shape" viewBox="0 0 12 12" width="12" height="12">
+            <circle cx="6" cy="6" r="5.5" fill="currentColor" opacity="0.8"/>
+            <path d="M4 4 L8 8 M8 4 L4 8" stroke="white" strokeWidth="1" strokeLinecap="round"/>
           </svg>
         </i>
         {props.customChildren}
@@ -51,15 +54,20 @@ const Tab = forwardRef<HTMLLIElement, TabProps>((props, ref) => {
 
       <style jsx>{`
         .tab_tab {
-          color: #ccc;
-          border-color: #ccc;
-          border-bottom-width: 1px;
-          border-bottom-style: solid;
-          border-left-width: 1px;
-          border-left-style: solid;
+          color: ${isMac ? '#5c5c5c' : '#ccc'};
+          border-color: ${isMac ? 'transparent' : '#ccc'};
+          border-bottom-width: ${isMac ? '0' : '1px'};
+          border-bottom-style: ${isMac ? 'none' : 'solid'};
+          border-left-width: ${isMac ? '0' : '1px'};
+          border-left-style: ${isMac ? 'none' : 'solid'};
           list-style-type: none;
           flex-grow: 1;
           position: relative;
+          background: ${isMac ? 'linear-gradient(to bottom, #f6f6f6 0%, #e8e8e8 100%)' : 'transparent'};
+          border-radius: ${isMac ? '4px 4px 0 0' : '0'};
+          margin: ${isMac ? '0 2px' : '0'};
+          height: ${isMac ? '24px' : 'auto'};
+          line-height: ${isMac ? '24px' : 'auto'};
         }
 
         .tab_tab:hover {
@@ -77,11 +85,14 @@ const Tab = forwardRef<HTMLLIElement, TabProps>((props, ref) => {
         }
 
         .tab_active {
-          color: #fff;
+          color: ${isMac ? '#000' : '#fff'};
           border-bottom-width: 0;
+          background: ${isMac ? 'linear-gradient(to bottom, #ffffff 0%, #f5f5f5 100%)' : 'transparent'};
+          box-shadow: ${isMac ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'};
+          z-index: 1;
         }
         .tab_active:hover {
-          color: #fff;
+          color: ${isMac ? '#000' : '#fff'};
         }
 
         .tab_hasActivity {
@@ -94,23 +105,28 @@ const Tab = forwardRef<HTMLLIElement, TabProps>((props, ref) => {
 
         .tab_text {
           transition: color 0.2s ease;
-          height: 34px;
+          height: ${isMac ? '24px' : '34px'};
           display: block;
           width: 100%;
           position: relative;
           overflow: hidden;
+          font-family: ${isMac ? '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' : 'inherit'};
+          font-size: ${isMac ? '12px' : 'inherit'};
+          font-weight: ${isMac ? '500' : 'inherit'};
         }
 
         .tab_textInner {
           position: absolute;
-          left: 24px;
-          right: 24px;
+          left: ${isMac ? '12px' : '24px'};
+          right: ${isMac ? '12px' : '24px'};
           top: 0;
           bottom: 0;
-          text-align: center;
+          text-align: ${isMac ? 'left' : 'center'};
           text-overflow: ellipsis;
           white-space: nowrap;
           overflow: hidden;
+          padding-left: ${isMac ? '8px' : '0'};
+          padding-right: ${isMac ? '8px' : '0'};
         }
 
         .tab_icon {
@@ -121,25 +137,26 @@ const Tab = forwardRef<HTMLLIElement, TabProps>((props, ref) => {
             background-color 0.1s ease;
           pointer-events: none;
           position: absolute;
-          right: 7px;
-          top: 10px;
+          right: ${isMac ? '4px' : '7px'};
+          top: ${isMac ? '6px' : '10px'};
           display: inline-block;
-          width: 14px;
-          height: 14px;
-          border-radius: 100%;
-          color: #e9e9e9;
+          width: ${isMac ? '12px' : '14px'};
+          height: ${isMac ? '12px' : '14px'};
+          border-radius: ${isMac ? '50%' : '100%'};
+          color: ${isMac ? '#86868b' : '#e9e9e9'};
           opacity: 0;
           transform: scale(0.95);
+          background: ${isMac ? 'rgba(0,0,0,0.05)' : 'transparent'};
         }
 
         .tab_icon:hover {
-          background-color: rgba(255, 255, 255, 0.13);
-          color: #fff;
+          background-color: ${isMac ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.13)'};
+          color: ${isMac ? '#1d1d1f' : '#fff'};
         }
 
         .tab_icon:active {
-          background-color: rgba(255, 255, 255, 0.1);
-          color: #909090;
+          background-color: ${isMac ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.1)'};
+          color: ${isMac ? '#86868b' : '#909090'};
         }
 
         .tab_tab:hover .tab_icon {

@@ -5,7 +5,7 @@ import ms from 'ms';
 
 import {version} from './package.json';
 
-const NEWS_URL = 'https://nimbus-news.vercel.app';
+const NEWS_URL = 'https://api.github.com/repos/vercel/hyper/releases/latest'; // Using GitHub releases as fallback
 
 export default function fetchNotifications(win: BrowserWindow) {
   const {rpc} = win;
@@ -43,17 +43,38 @@ export default function fetchNotifications(win: BrowserWindow) {
       if (!data) {
         return;
       }
-      const message: {text: string; url: string; dismissable: boolean} | '' = data.message || '';
-      if (typeof message !== 'object' && message !== '') {
-        throw new Error('Bad response');
-      }
-      if (message === '') {
-        console.log('No matching notification messages');
+      
+      // Handle GitHub API response format
+      if (data.tag_name && data.html_url) {
+        const currentVersion = version;
+        const latestVersion = data.tag_name.replace('v', '');
+        
+        // Simple version comparison
+        if (latestVersion > currentVersion) {
+          const message = {
+            text: `A new version (${latestVersion}) is available!`,
+            url: data.html_url,
+            dismissable: true
+          };
+          rpc.emit('add notification', message);
+          console.log(`New version available: ${latestVersion}`);
+        } else {
+          console.log('No new version available');
+        }
       } else {
-        rpc.emit('add notification', message);
+        console.log('No valid notification data found');
       }
 
       retry();
     })
-    .catch(retry);
+    .catch((err) => {
+      if (err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED') {
+        console.log('Notification service unavailable (network error), will retry later');
+      } else if (err.message?.includes('URL')) {
+        console.log('Notification service URL error, skipping notifications:', err.message);
+      } else {
+        console.error('Notification fetch error:', err.message);
+      }
+      retry(err);
+    });
 }

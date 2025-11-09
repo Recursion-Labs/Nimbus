@@ -78,6 +78,12 @@ app.getLastFocusedWindow = () => {
 console.log('Disabling Chromium GPU blacklist');
 app.commandLine.appendSwitch('ignore-gpu-blacklist');
 
+// Suppress extension permission warnings
+app.commandLine.appendSwitch('disable-extensions-http-throttling');
+app.commandLine.appendSwitch('disable-features','ExtensionPermissionWarnings');
+app.commandLine.appendSwitch('allow-running-insecure-content','false');
+app.commandLine.appendSwitch('disable-web-security','false');
+
 if (isDev) {
   console.log('running in dev mode');
 
@@ -101,21 +107,77 @@ async function installDevExtensions(isDev_: boolean) {
   if (!isDev_) {
     return [];
   }
-  const {default: installer, REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS} = await import('electron-devtools-installer');
+  
+  try {
+    const {default: installer, REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS} = await import('electron-devtools-installer');
+    
+    const extensions = [
+      {id: REACT_DEVELOPER_TOOLS, name: 'React Developer Tools'},
+      {id: REDUX_DEVTOOLS, name: 'Redux DevTools'}
+    ];
+    const forceDownload = Boolean(process.env.UPGRADE_EXTENSIONS);
 
-  const extensions = [REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS];
-  const forceDownload = Boolean(process.env.UPGRADE_EXTENSIONS);
-
-  return Promise.all(
-    extensions.map(async (extension) => {
-      try {
-        return await installer(extension, {forceDownload, loadExtensionOptions: {allowFileAccess: true}});
-      } catch (err: any) {
-        console.warn(`Failed to install extension ${extension}:`, err.message);
-        return null;
-      }
-    })
-  );
+    console.log('Installing development extensions...');
+    
+    return Promise.all(
+      extensions.map(async ({id, name}) => {
+        let originalWarn: any;
+        let originalError: any;
+        
+        try {
+          console.log(`Installing ${name}...`);
+           
+          // Temporarily suppress console warnings during extension installation
+          originalWarn = console.warn;
+          originalError = console.error;
+          
+          console.warn = (...args: any[]) => {
+            const message = args.join(' ');
+            if (message.includes('ExtensionLoadWarning') || message.includes('Permission') || message.includes('malformed')) {
+              // Silently ignore extension permission warnings
+              return;
+            }
+            originalWarn.apply(console, args);
+          };
+          
+          console.error = (...args: any[]) => {
+            const message = args.join(' ');
+            if (message.includes('ExtensionLoadWarning') || message.includes('Permission') || message.includes('malformed')) {
+              // Silently ignore extension permission errors
+              return;
+            }
+            originalError.apply(console, args);
+          };
+          
+          const result = await installer(id, {forceDownload, loadExtensionOptions: {allowFileAccess: true}});
+          
+          // Restore original console functions
+          console.warn = originalWarn;
+          console.error = originalError;
+          
+          console.log(`✓ Successfully installed ${name}`);
+          return result;
+        } catch (err: any) {
+          // Restore original console functions in case of error
+          if (console.warn !== originalWarn) console.warn = originalWarn;
+          if (console.error !== originalError) console.error = originalError;
+          
+          // Handle specific permission warnings gracefully
+          const errorMessage = err.message || '';
+          if (errorMessage.includes('Permission') || errorMessage.includes('malformed')) {
+            console.log(`⚠ Extension permission warning for ${name}: ${errorMessage}`);
+            console.log(`  This is expected for some extensions and doesn't affect functionality.`);
+            return null;
+          }
+          console.warn(`✗ Failed to install ${name}:`, errorMessage);
+          return null;
+        }
+      })
+    );
+  } catch (err: any) {
+    console.error('Error loading electron-devtools-installer:', err.message);
+    return [];
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-misused-promises

@@ -11,7 +11,12 @@ export function installUpdate(): NimbusActions {
   };
 }
 
-export function updateAvailable(version: string, notes: string, releaseUrl: string, canInstall: boolean): NimbusActions {
+export function updateAvailable(
+  version: string,
+  notes: string,
+  releaseUrl: string,
+  canInstall: boolean
+): NimbusActions {
   return {
     type: UPDATE_AVAILABLE,
     version,

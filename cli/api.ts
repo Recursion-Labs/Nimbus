@@ -90,7 +90,7 @@ function existsOnNpm(plugin: string) {
     .get<any>(registryUrl + name.toLowerCase(), {timeout: {request: 10000}, responseType: 'json'})
     .then((res) => {
       if (!res.body.versions) {
-        return Promise.reject(res);
+        return Promise.reject(new Error(JSON.stringify(res)));
       } else {
         return res;
       }
@@ -103,13 +103,15 @@ function install(plugin: string, locally?: boolean) {
     .catch((err: any) => {
       const {statusCode} = err;
       if (statusCode && (statusCode === 404 || statusCode === 200)) {
-        return Promise.reject(`${plugin} not found on npm`);
+        return Promise.reject(new Error(`${plugin} not found on npm`));
       }
-      return Promise.reject(`${err.message}\nPlugin check failed. Check your internet connection or retry later.`);
+      return Promise.reject(
+        new Error(`${err.message}\nPlugin check failed. Check your internet connection or retry later.`)
+      );
     })
     .then(() => {
       if (isInstalled(plugin, locally)) {
-        return Promise.reject(`${plugin} is already installed`);
+        return Promise.reject(new Error(`${plugin} is already installed`));
       }
 
       const config = getParsedFile();
@@ -120,7 +122,7 @@ function install(plugin: string, locally?: boolean) {
 
 async function uninstall(plugin: string) {
   if (!isInstalled(plugin)) {
-    return Promise.reject(`${plugin} is not installed`);
+    return Promise.reject(new Error(`${plugin} is not installed`));
   }
 
   const config = getParsedFile();

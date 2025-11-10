@@ -9,7 +9,7 @@ import type {NimbusActions, NimbusState} from '../../typings/nimbus';
  * defer or add to existing side effects at will
  * as the result of an action being triggered.
  */
-const effectsMiddleware: Middleware<{}, NimbusState, Dispatch<NimbusActions>> = () => (next) => (action: any) => {
+const effectsMiddleware: Middleware<object, NimbusState, Dispatch<NimbusActions>> = () => (next) => (action: any) => {
   const ret = next(action);
   if (action && typeof action === 'object' && action.effect) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call

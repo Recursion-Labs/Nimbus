@@ -335,12 +335,12 @@ const reducer: IUiReducer = (state = initial, action) => {
     case SESSION_PTY_EXIT:
       state_ = state
         .updateIn(['openAt'], (times: ImmutableType<Record<string, number>>) => {
-          const times_ = times.asMutable();
+          const times_ = times.asMutable() as Record<string, number>;
           delete times_[action.uid];
           return times_;
         })
         .updateIn(['activityMarkers'], (markers: ImmutableType<Record<string, boolean>>) => {
-          const markers_ = markers.asMutable();
+          const markers_ = markers.asMutable() as Record<string, boolean>;
           delete markers_[action.uid];
           return markers_;
         });

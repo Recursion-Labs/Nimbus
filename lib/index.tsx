@@ -76,25 +76,25 @@ console.log('=== Setting up RPC ready handler ===');
 rpc.on('ready', () => {
   console.log('=== RPC ready event fired! ===');
   console.log('=== Starting React render ===');
-  
+
   const mountElement = document.getElementById('mount');
   console.log('Mount element:', mountElement);
-  
+
   if (!mountElement) {
     console.error('FATAL: Mount element not found!');
     return;
   }
-  
+
   const root = createRoot(mountElement);
   console.log('Root created successfully');
-  
+
   root.render(
     <Provider store={store_}>
       <NimbusContainer />
     </Provider>
   );
   console.log('=== React app rendered successfully ===');
-  
+
   store_.dispatch(init());
   store_.dispatch(uiActions.setFontSmoothing());
   console.log('=== Init and font smoothing dispatched ===');

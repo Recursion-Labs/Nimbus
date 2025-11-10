@@ -33,7 +33,11 @@ export class Server {
     this.wc.on('did-finish-load', () => {
       try {
         if (!this.win.isDestroyed() && !this.wc.isDestroyed()) {
-          this.wc.send('init', uid, win.profileName);
+          (this.wc as {send: (channel: string, uid: string, profileName: string) => void}).send(
+            'init',
+            uid,
+            win.profileName
+          );
         }
       } catch (err: any) {
         // Handle EPIPE and IPC errors during initialization
@@ -68,18 +72,18 @@ export class Server {
     // emitted after the window has already closed
     if (!this.win.isDestroyed() && !this.wc.isDestroyed()) {
       try {
-        this.wc.send(this.id, {ch, data});
+        (this.wc as {send: (id: string, data: any) => void}).send(this.id, {ch, data});
         return true;
       } catch (err: any) {
         // Handle EPIPE and other IPC errors gracefully
         if (
           err.code === 'EPIPE' ||
           err.code === 'ERR_IPC_CHANNEL_CLOSED' ||
-          err.message?.includes('Object has been destroyed')
+          (err as Error).message?.includes('Object has been destroyed')
         ) {
           console.warn('IPC channel closed, cannot send message:', ch);
         } else {
-          console.error('Error sending IPC message:', err);
+          console.error('Error sending IPC message:', err instanceof Error ? err.message : String(err));
         }
         return false;
       }
@@ -91,7 +95,7 @@ export class Server {
     try {
       this.emitter.removeAllListeners();
       if (!this.wc.isDestroyed()) {
-        this.wc.removeAllListeners();
+        (this.wc as {removeAllListeners: () => void}).removeAllListeners();
       }
       if (this.id) {
         ipcMain.removeListener(this.id, this.ipcListener);

@@ -23,8 +23,8 @@ process.on('unhandledRejection', (reason: any, promise) => {
 
 // Print diagnostic information for a few arguments instead of running Nimbus.
 if (['--help', '-v', '--version'].includes(process.argv[1])) {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const {version} = require('./package');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const {version} = require('./package.json');
   console.log(`Nimbus version ${version}`);
   console.log('Nimbus does not accept any command line arguments. Please modify the config file instead.');
   console.log(`Nimbus configuration file located at: ${cfgPath}`);
@@ -78,12 +78,6 @@ app.getLastFocusedWindow = () => {
 console.log('Disabling Chromium GPU blacklist');
 app.commandLine.appendSwitch('ignore-gpu-blacklist');
 
-// Suppress extension permission warnings
-app.commandLine.appendSwitch('disable-extensions-http-throttling');
-app.commandLine.appendSwitch('disable-features','ExtensionPermissionWarnings');
-app.commandLine.appendSwitch('allow-running-insecure-content','false');
-app.commandLine.appendSwitch('disable-web-security','false');
-
 if (isDev) {
   console.log('running in dev mode');
 
@@ -107,69 +101,19 @@ async function installDevExtensions(isDev_: boolean) {
   if (!isDev_) {
     return [];
   }
-  
+
   try {
     const {default: installer, REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS} = await import('electron-devtools-installer');
-    
-    const extensions = [
-      {id: REACT_DEVELOPER_TOOLS, name: 'React Developer Tools'},
-      {id: REDUX_DEVTOOLS, name: 'Redux DevTools'}
-    ];
+
+    const extensions = [REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS];
     const forceDownload = Boolean(process.env.UPGRADE_EXTENSIONS);
 
-    console.log('Installing development extensions...');
-    
     return Promise.all(
-      extensions.map(async ({id, name}) => {
-        let originalWarn: any;
-        let originalError: any;
-        
+      extensions.map(async (extension) => {
         try {
-          console.log(`Installing ${name}...`);
-           
-          // Temporarily suppress console warnings during extension installation
-          originalWarn = console.warn;
-          originalError = console.error;
-          
-          console.warn = (...args: any[]) => {
-            const message = args.join(' ');
-            if (message.includes('ExtensionLoadWarning') || message.includes('Permission') || message.includes('malformed')) {
-              // Silently ignore extension permission warnings
-              return;
-            }
-            originalWarn.apply(console, args);
-          };
-          
-          console.error = (...args: any[]) => {
-            const message = args.join(' ');
-            if (message.includes('ExtensionLoadWarning') || message.includes('Permission') || message.includes('malformed')) {
-              // Silently ignore extension permission errors
-              return;
-            }
-            originalError.apply(console, args);
-          };
-          
-          const result = await installer(id, {forceDownload, loadExtensionOptions: {allowFileAccess: true}});
-          
-          // Restore original console functions
-          console.warn = originalWarn;
-          console.error = originalError;
-          
-          console.log(`✓ Successfully installed ${name}`);
-          return result;
+          return await installer(extension, {forceDownload, loadExtensionOptions: {allowFileAccess: true}});
         } catch (err: any) {
-          // Restore original console functions in case of error
-          if (console.warn !== originalWarn) console.warn = originalWarn;
-          if (console.error !== originalError) console.error = originalError;
-          
-          // Handle specific permission warnings gracefully
-          const errorMessage = err.message || '';
-          if (errorMessage.includes('Permission') || errorMessage.includes('malformed')) {
-            console.log(`⚠ Extension permission warning for ${name}: ${errorMessage}`);
-            console.log(`  This is expected for some extensions and doesn't affect functionality.`);
-            return null;
-          }
-          console.warn(`✗ Failed to install ${name}:`, errorMessage);
+          console.warn(`Failed to install extension ${extension.id || 'unknown'}:`, err.message);
           return null;
         }
       })
@@ -330,6 +274,6 @@ app.on('open-file', (_event, path) => {
 
 app.on('open-url', (_event, sshUrl) => {
   GetWindow((win: BrowserWindow) => {
-    win.rpc.emit('open ssh', parseUrl(sshUrl) as any);
+    win.rpc.emit('open ssh', parseUrl(sshUrl));
   });
 });

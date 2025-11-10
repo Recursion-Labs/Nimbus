@@ -1,6 +1,7 @@
 // eslint-disable-next-line eslint-comments/disable-enable-pair
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import ChildProcess from 'child_process';
+import Module from 'module';
 import pathModule from 'path';
 
 import React, {PureComponent} from 'react';
@@ -103,7 +104,7 @@ function getDecorated<P extends Record<string, any>>(
 
     modules.forEach((mod: any) => {
       const method = 'decorate' + name;
-      const fn: Function & {_pluginName: string} = mod[method];
+      const fn: ((...args: any[]) => any) & {_pluginName: string} = mod[method];
 
       if (fn) {
         let class__;
@@ -168,10 +169,8 @@ export function decorate<P extends Record<string, any>>(
 // patching Module._load
 // so plugins can `require` them without needing their own version
 // https://github.com/vercel/nimbus/issues/619
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const Module = require('module') as typeof import('module') & {_load: Function};
-const originalLoad = Module._load;
-Module._load = function _load(path: string) {
+const originalLoad = (Module as any)._load;
+(Module as any)._load = function _load(path: string) {
   // PLEASE NOTE: Code changes here, also need to be changed in
   // app/plugins.js
   switch (path) {
@@ -196,7 +195,7 @@ Module._load = function _load(path: string) {
       return process.platform === 'darwin' ? IPCChildProcess : ChildProcess;
     default:
       // eslint-disable-next-line prefer-rest-params
-      return originalLoad.apply(this, arguments);
+      return (originalLoad as (...args: any[]) => any).apply(this, Array.from(arguments));
   }
 };
 
@@ -207,8 +206,7 @@ const clearModulesCache = () => {
   // trigger unload hooks
   modules.forEach((mod) => {
     if (mod.onRendererUnload) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      mod.onRendererUnload(window);
+      (mod.onRendererUnload as (window: Window) => void)(window);
     }
   });
 
@@ -227,7 +225,7 @@ const getPluginVersion = (path: string): string | null => {
   let version: string | null = null;
   try {
     version = window.require(pathModule.resolve(path, 'package.json')).version as string;
-  } catch (err) {
+  } catch {
     console.warn(`No package.json found in ${path}`);
   }
   return version;
@@ -372,8 +370,7 @@ const loadModules = () => {
       }
 
       if (mod.onRendererWindow) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        mod.onRendererWindow(window);
+        (mod.onRendererWindow as (window: Window) => void)(window);
       }
       console.log(`Plugin ${pluginName} (${pluginVersion}) loaded.`);
 
@@ -456,7 +453,7 @@ export function getTabProps<T extends Assignable<TabProps, T>>(tab: any, parentP
 // connects + decorates a class
 // plugins can override mapToState, dispatchToProps
 // and the class gets decorated (proxied)
-export function connect<stateProps extends {}, dispatchProps>(
+export function connect<stateProps extends Record<string, unknown>, dispatchProps>(
   stateFn: (state: NimbusState) => stateProps,
   dispatchFn: (dispatch: NimbusDispatch) => dispatchProps,
   c: null | undefined,
@@ -576,7 +573,7 @@ export function decorateSessionsReducer(fn: ISessionReducer) {
 }
 
 // redux middleware generator
-export const middleware: Middleware<{}, NimbusState, Dispatch<NimbusActions>> = (store) => (next) => (action) => {
+export const middleware: Middleware<object, NimbusState, Dispatch<NimbusActions>> = (store) => (next) => (action) => {
   const nextMiddleware = (remaining: Middleware[]) => (action_: any) =>
     remaining.length ? remaining[0](store)(nextMiddleware(remaining.slice(1)))(action_) : next(action_);
   nextMiddleware(middlewares)(action);

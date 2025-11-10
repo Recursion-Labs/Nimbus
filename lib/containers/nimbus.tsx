@@ -62,7 +62,9 @@ const Nimbus = forwardRef<HTMLDivElement, NimbusProps>((props, ref) => {
           // We should tell xterm to ignore this event.
           (e as any).catched = true;
           props.execCommand(command, getCommandHandler(command), e);
-          shouldPreventDefault(command) && e.preventDefault();
+          if (shouldPreventDefault(command)) {
+            e.preventDefault();
+          }
         },
         'keydown'
       );

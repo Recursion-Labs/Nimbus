@@ -155,14 +155,11 @@ const config: webpack.Configuration[] = [
         ]
       }),
       // Fix for critical dependency warnings
-      new webpack.ContextReplacementPlugin(
-        /keyv/,
-        (context: any) => {
-          Object.assign(context, {
-            request: '../package.json'
-          });
-        }
-      )
+      new webpack.ContextReplacementPlugin(/keyv/, (context: any) => {
+        Object.assign(context, {
+          request: '../package.json'
+        });
+      })
     ],
     optimization: {
       minimize: isProd ? true : false,
@@ -206,14 +203,11 @@ const config: webpack.Configuration[] = [
         'process.env.NODE_ENV': JSON.stringify(nodeEnv)
       }),
       // Fix for got/keyv dependency warnings
-      new webpack.ContextReplacementPlugin(
-        /cacheable-request/,
-        (context: any) => {
-          Object.assign(context, {
-            request: '../package.json'
-          });
-        }
-      )
+      new webpack.ContextReplacementPlugin(/cacheable-request/, (context: any) => {
+        Object.assign(context, {
+          request: '../package.json'
+        });
+      })
     ],
     optimization: {
       minimize: isProd ? true : false,

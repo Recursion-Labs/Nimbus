@@ -2,7 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import {exec, execFile} from 'child_process';
-import {writeFileSync} from 'fs';
+import {writeFileSync, readFileSync} from 'fs';
+import Module from 'module';
 import {resolve, basename} from 'path';
 import {promisify} from 'util';
 
@@ -42,7 +43,7 @@ function getId(plugins_: any) {
   return JSON.stringify(plugins_);
 }
 
-const watchers: Function[] = [];
+const watchers: ((err?: Error, {force}?: {force: boolean}) => void)[] = [];
 
 // we listen on configuration updates to trigger
 // plugin installation
@@ -62,10 +63,8 @@ config.subscribe(() => {
 // so plugins can `require` them without needing their own version
 // https://github.com/vercel/nimbus/issues/619
 function patchModuleLoad() {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const Module = require('module');
-  const originalLoad = Module._load;
-  Module._load = function _load(modulePath: string) {
+  const originalLoad = (Module as any)._load;
+  (Module as any)._load = function _load(modulePath: string) {
     // PLEASE NOTE: Code changes here, also need to be changed in
     // lib/utils/plugins.js
     switch (modulePath) {
@@ -135,7 +134,7 @@ function updatePlugins({force = false} = {}) {
 
       // notify watchers
       watchers.forEach((fn) => {
-        fn(err, {force});
+        fn(typeof err === 'string' ? new Error(err) : undefined, {force});
       });
 
       if (force || changed) {
@@ -155,10 +154,10 @@ function getPluginVersions() {
   return paths_.map((path_) => {
     let version: string | null = null;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      version = require(resolve(path_, 'package.json')).version;
-      //eslint-disable-next-line no-empty
-    } catch (err) {}
+      version = JSON.parse(readFileSync(resolve(path_, 'package.json'), 'utf8')).version;
+    } catch {
+      // ignore
+    }
     return [basename(path_), version];
   });
 }
@@ -200,8 +199,11 @@ if (cache.get('nimbus.plugins') !== id || process.env.NIMBUS_FORCE_UPDATE) {
   const baseConfig = config.getConfig();
   if (baseConfig['autoUpdatePlugins']) {
     // otherwise update plugins every 5 hours
-    const interval = baseConfig['autoUpdatePlugins'] === true ? '5h' : (baseConfig['autoUpdatePlugins'] as string);
-    setInterval(updatePlugins, (ms as any)(interval));
+    const interval = baseConfig['autoUpdatePlugins'] === true ? '5h' : baseConfig['autoUpdatePlugins'];
+    const intervalMs = ms(interval);
+    if (typeof intervalMs === 'number') {
+      setInterval(updatePlugins, intervalMs);
+    }
   }
 })();
 
@@ -221,7 +223,7 @@ function syncPackageJSON() {
   const file = resolve(path, 'package.json');
   try {
     writeFileSync(file, JSON.stringify(pkg, null, 2));
-  } catch (err) {
+  } catch {
     alert(`An error occurred writing to ${file}`);
   }
 }
@@ -253,7 +255,7 @@ function toDependencies(plugins_: {plugins: string[]}) {
   return obj;
 }
 
-export const subscribe = (fn: Function) => {
+export const subscribe = (fn: (err?: Error, {force}?: {force: boolean}) => void) => {
   watchers.push(fn);
   return () => {
     watchers.splice(watchers.indexOf(fn), 1);
@@ -282,10 +284,10 @@ export const getBasePaths = () => {
 function requirePlugins(): any[] {
   const {plugins: plugins_, localPlugins} = paths;
 
-  const load = (path_: string) => {
+  const load = async (path_: string) => {
     let mod: Record<string, any>;
     try {
-      mod = require(path_);
+      mod = (await import(path_)) as Record<string, any>;
       const exposed = mod && Object.keys(mod).some((key) => availableExtensions.has(key));
       if (!exposed) {
         notify('Plugin error!', `${`Plugin "${basename(path_)}" does not expose any `}Nimbus extension API methods`);
@@ -295,9 +297,8 @@ function requirePlugins(): any[] {
       // populate the name for internal errors here
       mod._name = basename(path_);
       try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        mod._version = require(resolve(path_, 'package.json')).version;
-      } catch (err) {
+        mod._version = JSON.parse(readFileSync(resolve(path_, 'package.json'), 'utf8')).version;
+      } catch {
         console.warn(`No package.json found in ${path_}`);
       }
       console.log(`Plugin ${mod._name} (${mod._version}) loaded.`);
@@ -319,7 +320,7 @@ function requirePlugins(): any[] {
     ...localPlugins.filter((p) => basename(p) !== 'migrated-nimbus3-config')
   ]
     .map(load)
-    .filter((v): v is Record<string, any> => Boolean(v));
+    .filter((v): v is Promise<Record<string, any> | undefined> => Boolean(v));
 }
 
 export const onApp = (app_: App) => {

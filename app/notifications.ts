@@ -32,7 +32,7 @@ export default function fetchNotifications(win: BrowserWindow) {
         throw new Error(`HTTP error! status: ${res.status}`);
       }
       const contentType = res.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
+      if (!contentType?.includes('application/json')) {
         console.log('Notification service returned non-JSON response, skipping');
         retry();
         return null;
@@ -43,12 +43,12 @@ export default function fetchNotifications(win: BrowserWindow) {
       if (!data) {
         return;
       }
-      
+
       // Handle GitHub API response format
       if (data.tag_name && data.html_url) {
         const currentVersion = version;
-        const latestVersion = data.tag_name.replace('v', '');
-        
+        const latestVersion = (data.tag_name as string).replace('v', '');
+
         // Simple version comparison
         if (latestVersion > currentVersion) {
           const message = {
@@ -56,7 +56,8 @@ export default function fetchNotifications(win: BrowserWindow) {
             url: data.html_url,
             dismissable: true
           };
-          rpc.emit('add notification', message);
+
+          (rpc as {emit: (event: string, data: any) => void}).emit('add notification', message);
           console.log(`New version available: ${latestVersion}`);
         } else {
           console.log('No new version available');
@@ -67,14 +68,15 @@ export default function fetchNotifications(win: BrowserWindow) {
 
       retry();
     })
-    .catch((err) => {
+    .catch((err: any) => {
       if (err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED') {
         console.log('Notification service unavailable (network error), will retry later');
-      } else if (err.message?.includes('URL')) {
-        console.log('Notification service URL error, skipping notifications:', err.message);
+      } else if ((err as Error).message?.includes('URL')) {
+        console.log('Notification service URL error, skipping notifications:', (err as Error).message);
       } else {
-        console.error('Notification fetch error:', err.message);
+        console.error('Notification fetch error:', (err as Error).message);
       }
-      retry(err);
+
+      retry(err instanceof Error ? err : new Error(String(err)));
     });
 }
